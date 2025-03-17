@@ -32,7 +32,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("https://odd-abagael-personal27-71e173fd.koyeb.app", "http://localhost:8080")); // Add Swagger UI origin
+        configuration.setAllowedOrigins(Arrays.asList("https://odd-abagael-personal27-71e173fd.koyeb.app", "http://localhost:8080"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

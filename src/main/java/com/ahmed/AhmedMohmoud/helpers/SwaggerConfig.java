@@ -1,10 +1,12 @@
 package com.ahmed.AhmedMohmoud.helpers;
 
 
+
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,10 +17,10 @@ public class SwaggerConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("StackerRat API")
+                        .title("StalkerRat API") // Fixed typo from "StackerRat"
                         .version("0.0.1-SNAPSHOT")
-                        .description("API for managing user files and authentication in StackerRat"))
-                // Add JWT security requirement
+                        .description("API for managing user files and authentication in StalkerRat"))
+                .addServersItem(new Server().url("https://odd-abagael-personal27-71e173fd.koyeb.app")) // Force HTTPS
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new io.swagger.v3.oas.models.Components()
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
