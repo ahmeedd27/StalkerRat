@@ -3,6 +3,7 @@ package com.ahmed.AhmedMohmoud.controllers;
 import com.ahmed.AhmedMohmoud.helpers.UserRegister;
 import com.ahmed.AhmedMohmoud.helpers.UserLogin;
 import com.ahmed.AhmedMohmoud.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +17,7 @@ public class AuthenticationController {
 
     @PostMapping("/register")
     public ResponseEntity<String> signUpUser(
-            @RequestBody UserRegister user
+            @Valid @RequestBody UserRegister user
     ) {
         return userService.saveUser(user);
     }
