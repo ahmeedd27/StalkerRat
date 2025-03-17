@@ -4,14 +4,18 @@ import com.ahmed.AhmedMohmoud.dao.MessageRepo;
 import com.ahmed.AhmedMohmoud.dao.UserRepo;
 import com.ahmed.AhmedMohmoud.entities.Message;
 import com.ahmed.AhmedMohmoud.entities.User;
-import com.ahmed.AhmedMohmoud.file.FileStorageService;
 import com.ahmed.AhmedMohmoud.helpers.*;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -19,7 +23,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,11 +36,18 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class MainService {
-    private final UserRepo userRepo;
-    private final MessageRepo messageRepo;
-    private final FileStorageService fileStorageService;
 
+    private static final Logger logger = LoggerFactory.getLogger(MainService.class);
+
+    private final UserRepo userRepo;
+    private final WebClient webClient = WebClient.builder()
+            .baseUrl("https://postimages.org")
+            .build();
+    private final MessageRepo messageRepo;
+    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/gif");
+     private static final long MAX_FILE_SIZE=10 * 1024 * 1024;
 
 
     public ResponseEntity<ProfileDto> getProfileDto(Authentication connectedUser) {
@@ -184,16 +198,9 @@ public class MainService {
     }
 
 
-    public ResponseEntity<String> uploadFile(MultipartFile file, Authentication connectedUser) throws IOException {
-        User user=(User) connectedUser.getPrincipal();
-        User u=userRepo.findById(user.getId()).orElseThrow(() -> new NoSuchElementException("Not Found"));
-        String picUrl=fileStorageService.saveFile(file , user.getId());
-        if (picUrl == null) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to upload file");
-        }
-        u.setPicUrl(picUrl);
-        userRepo.save(u);
-        return ResponseEntity.ok(picUrl);
-    }
+
+
+
+
+
 }

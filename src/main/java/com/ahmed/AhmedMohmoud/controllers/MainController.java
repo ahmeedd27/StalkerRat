@@ -2,14 +2,19 @@ package com.ahmed.AhmedMohmoud.controllers;
 
 import com.ahmed.AhmedMohmoud.helpers.*;
 import com.ahmed.AhmedMohmoud.service.MainService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,20 +29,8 @@ public class MainController {
     public ResponseEntity<ProfileDto> getProfile(Authentication connectedUser) {
         return mainService.getProfileDto(connectedUser);
     }
-    @PostMapping(value = "/uploadpic" , consumes = "multipart/form-data")
-    public ResponseEntity<String> uploadPic(
 
-            @RequestParam("file") MultipartFile file ,
-            Authentication connectedUser
-    ) throws IOException {
-        return mainService.uploadFile(file , connectedUser);
 
-    }
-
-//    @GetMapping("/download")
-//    public ResponseEntity<Resource> downloadFile(@RequestParam("file") String fileName){
-//
-//    }
 
     @GetMapping("/messages")
     public ResponseEntity<UserMessagesResponse> getMessages(@RequestParam(name = "page", defaultValue = "0", required = false) int page, @RequestParam(name = "size", defaultValue = "10", required = false) int size, Authentication connectedUser) {
