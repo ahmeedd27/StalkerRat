@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 @Builder
 @Entity
 @EntityListeners(AuditingEntityListener.class)
+@Table(name = "users")
 public class User implements UserDetails, Principal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
