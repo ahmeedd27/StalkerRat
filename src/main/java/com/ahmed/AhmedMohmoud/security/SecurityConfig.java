@@ -32,7 +32,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("https://odd-abagael-personal27-71e173fd.koyeb.app", "http://localhost:8080" , "http://localhost:3000"));
+        configuration.setAllowedOrigins(Arrays.asList("https://crucial-michaelina-personal27-17f4cba2.koyeb.app", "http://localhost:8080" , "http://localhost:3000"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS" ,"PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);

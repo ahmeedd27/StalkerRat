@@ -9,6 +9,7 @@ import com.ahmed.AhmedMohmoud.exception.InvalidFileException;
 import com.ahmed.AhmedMohmoud.exception.OperationNotPermittedException;
 import com.ahmed.AhmedMohmoud.exception.ResourceNotFoundException;
 import com.ahmed.AhmedMohmoud.helpers.*;
+import io.netty.channel.ChannelOption;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,9 +43,11 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.json.JSONObject;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -62,6 +66,11 @@ public class MainService {
     private final UserRepo userRepo;
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://api.imgur.com/3")
+            .clientConnector(new ReactorClientHttpConnector(
+                    HttpClient.create()
+                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000) // 10s connect timeout
+                            .responseTimeout(Duration.ofSeconds(30)) // 30s response timeout
+            ))
             .build();
     private final MessageRepo messageRepo;
     private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/gif" ,"image/jpg");
@@ -233,42 +242,63 @@ public class MainService {
             throw new FileTooLargeException("File too large! Max: 10MB");
         }
 
-        User user = (User) connectedUser.getPrincipal();
 
-        try {
-            // Convert Mono to CompletableFuture for synchronous result
-            CompletableFuture<String> future = webClient.post()
-                    .uri("/image")
-                    .header("Authorization", "Client-ID " + ImgurClientId)
-                    .bodyValue(file.getBytes())
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .toFuture();
+            User user = (User) connectedUser.getPrincipal();
+            int maxRetries = 3;
+            int initialDelaySeconds = 5;
 
-            // Wait for the result and process it
-            String response = future.get(); // Blocks until complete, but not reactive block()
-            JSONObject jsonObject = new JSONObject(response);
-            String imageUrl = jsonObject.getJSONObject("data").getString("link");
+            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    CompletableFuture<String> future = webClient.post()
+                            .uri("/image")
+                            .header("Authorization", "Client-ID " + ImgurClientId)
+                            .bodyValue(file.getBytes())
+                            .retrieve()
+                            .toEntity(String.class)
+                            .map(responseEntity -> {
+                                logger.info("Imgur Headers: {}", responseEntity.getHeaders());
+                                return responseEntity.getBody();
+                            })
+                            .toFuture();
 
-            // Save to database within transaction
-            user.setPicUrl(imageUrl);
-            userRepo.save(user);
+                    String response = future.get();
+                    JSONObject jsonObject = new JSONObject(response);
+                    String imageUrl = jsonObject.getJSONObject("data").getString("link");
 
-            logger.info("Profile picture uploaded successfully for user: {}, URL: {}", user.getEmail(), imageUrl);
-            return ResponseEntity.ok("Profile picture uploaded successfully: " + imageUrl);
+                    user.setPicUrl(imageUrl);
+                    userRepo.save(user);
+                    logger.info("Profile picture uploaded successfully for user: {}, URL: {}", user.getEmail(), imageUrl);
+                    return ResponseEntity.ok("Profile picture uploaded successfully: " + imageUrl);
 
-        } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            logger.error("Error uploading image to Imgur: {}", cause.getMessage());
-            return ResponseEntity.status(500).body("Imgur upload failed: " + cause.getMessage());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("Upload interrupted: {}", e.getMessage());
-            return ResponseEntity.status(500).body("Upload interrupted: " + e.getMessage());
-        } catch (Exception e) {
-            logger.error("Unexpected error: {}", e.getMessage());
-            return ResponseEntity.internalServerError().body("Unexpected error: " + e.getMessage());
-        }
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    String errorMsg = cause.getMessage();
+                    if (errorMsg.contains("RST_STREAM")) {
+                        logger.warn("RST_STREAM received on attempt {}/{}", attempt, maxRetries);
+                        if (attempt < maxRetries) {
+                            int delay = initialDelaySeconds * (int) Math.pow(2, attempt - 1); // Exponential backoff
+                            logger.info("Retrying after {} seconds...", delay);
+                            try {
+                                Thread.sleep(delay * 1000);
+                                continue;
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                return ResponseEntity.status(500).body("Retry interrupted");
+                            }
+                        }
+                        return ResponseEntity.status(503).body("Imgur upload failed: RST_STREAM after max retries");
+                    }
+                    logger.error("Error uploading image to Imgur: {}", errorMsg);
+                    return ResponseEntity.status(500).body("Imgur upload failed: " + errorMsg);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return ResponseEntity.status(500).body("Upload interrupted");
+                } catch (Exception e) {
+                    logger.error("Unexpected error: {}", e.getMessage());
+                    return ResponseEntity.internalServerError().body("Unexpected error: " + e.getMessage());
+                }
+            }
+            return ResponseEntity.status(503).body("Max retries exceeded due to RST_STREAM");
     }
 
 //        try {
