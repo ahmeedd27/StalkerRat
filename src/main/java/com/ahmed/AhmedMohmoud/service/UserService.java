@@ -7,11 +7,14 @@ import com.ahmed.AhmedMohmoud.dao.UserRepo;
 import com.ahmed.AhmedMohmoud.entities.Role;
 import com.ahmed.AhmedMohmoud.entities.Token;
 import com.ahmed.AhmedMohmoud.entities.User;
+import com.ahmed.AhmedMohmoud.exception.DuplicatedEmailException;
+import com.ahmed.AhmedMohmoud.exception.ResourceNotFoundException;
 import com.ahmed.AhmedMohmoud.helpers.UserLogin;
 import com.ahmed.AhmedMohmoud.helpers.UserRegister;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,7 +43,10 @@ public class UserService {
     }
 
     public ResponseEntity<String> saveUser(UserRegister user){
-       Role r=roleRepo.findById(1).orElseThrow();
+        if(userRepo.findByUserEmail(user.getEmail())!=null){
+            throw new DuplicatedEmailException("this email exist");
+        }
+       Role r=roleRepo.findById(1).orElseThrow(() -> new ResourceNotFoundException("Role with ID 1 not found"));
        User u= User.builder()
                 .name(user.getName())
                 .email(user.getEmail())
@@ -59,23 +65,30 @@ public class UserService {
     }
 
     public ResponseEntity<String> loginUser(UserLogin userLogin) {
-        var authUser=authenticationManager.authenticate(
-          new UsernamePasswordAuthenticationToken(
-                  userLogin.getEmail() ,
-                  userLogin.getPassword()
-          )
-        );
-        User user=(User) authUser.getPrincipal();
-        Map<String , Object> claims=new HashMap<>();
-        claims.put("fullName" , user.getName());
-        revokeAllTokens(user);
-        String generatedToken= jwtService.generateToken(claims , user);
-         Token t=Token.builder()
-                 .isRevoked(false)
-                 .name(generatedToken)
-                 .user(user)
-                 .build();
-         tokenRepo.save(t);
-         return ResponseEntity.ok(generatedToken);
+       try {
+           var authUser = authenticationManager.authenticate(
+                   new UsernamePasswordAuthenticationToken(
+                           userLogin.getEmail(),
+                           userLogin.getPassword()
+                   )
+           );
+           User user = (User) authUser.getPrincipal();
+           Map<String, Object> claims = new HashMap<>();
+           claims.put("fullName", user.getName());
+           revokeAllTokens(user);
+           String generatedToken = jwtService.generateToken(claims, user);
+           Token t = Token.builder()
+                   .isRevoked(false)
+                   .name(generatedToken)
+                   .user(user)
+                   .build();
+           tokenRepo.save(t);
+           return ResponseEntity.ok(generatedToken);
+       } catch (BadCredentialsException e) {
+           throw new BadCredentialsException("Invalid email or password provided");
+       } catch (Exception e) {
+
+           throw e;
+       }
     }
 }

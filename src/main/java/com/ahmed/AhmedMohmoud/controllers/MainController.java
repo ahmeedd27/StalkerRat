@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
@@ -29,6 +30,11 @@ public class MainController {
     public ResponseEntity<ProfileDto> getProfile(Authentication connectedUser) {
         return mainService.getProfileDto(connectedUser);
     }
+    @PostMapping("/upload-profile-picture")
+    public ResponseEntity<String> uploadProfilePicture(@RequestParam("file") MultipartFile file, Authentication connectedUser) throws IOException {
+        return mainService.uploadProfilePicture(file, connectedUser);
+    }
+
 
 
 

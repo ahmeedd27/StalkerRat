@@ -4,9 +4,18 @@ import com.ahmed.AhmedMohmoud.dao.MessageRepo;
 import com.ahmed.AhmedMohmoud.dao.UserRepo;
 import com.ahmed.AhmedMohmoud.entities.Message;
 import com.ahmed.AhmedMohmoud.entities.User;
+import com.ahmed.AhmedMohmoud.exception.FileTooLargeException;
+import com.ahmed.AhmedMohmoud.exception.InvalidFileException;
+import com.ahmed.AhmedMohmoud.exception.OperationNotPermittedException;
+import com.ahmed.AhmedMohmoud.exception.ResourceNotFoundException;
 import com.ahmed.AhmedMohmoud.helpers.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.apache.hc.client5.http.entity.mime.ByteArrayBody;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +24,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -23,31 +31,39 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.json.JSONObject;
 import reactor.core.publisher.Mono;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class MainService {
 
     private static final Logger logger = LoggerFactory.getLogger(MainService.class);
-
+    @Value("${ImgurClientId}")
+    private String ImgureClientId;
     private final UserRepo userRepo;
     private final WebClient webClient = WebClient.builder()
-            .baseUrl("https://postimages.org")
+            .baseUrl("https://api.imgur.com/3")
             .build();
     private final MessageRepo messageRepo;
     private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/gif");
-     private static final long MAX_FILE_SIZE=10 * 1024 * 1024;
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 
     public ResponseEntity<ProfileDto> getProfileDto(Authentication connectedUser) {
@@ -94,14 +110,14 @@ public class MainService {
     public ResponseEntity<String> deleteMessage(Integer msgId, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         Message m = messageRepo.findById(msgId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Message doesn't exist"));
+                .orElseThrow(() -> new ResourceNotFoundException("Message doesn't exist"));
         if (!m.getReceiver().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only the receiver can delete the message");
+            throw new OperationNotPermittedException("Only the receiver can delete the message");
 
         }
         int deletedRows = messageRepo.deleteSpecificMessageReceivedToSpecificUser(msgId, user.getId());
         if (deletedRows == 0) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to delete message");
+            throw new OperationNotPermittedException("The message is not deleted");
         }
         return ResponseEntity.ok("Deleted Successfully");
     }
@@ -109,9 +125,9 @@ public class MainService {
     public ResponseEntity<String> makeMessageFavorite(Integer msgId, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         Message message = messageRepo.makeMessageFavorite(msgId, user.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Message doesn't exist"));
+                .orElseThrow(() -> new ResourceNotFoundException("Message doesn't exist"));
         if (!message.getReceiver().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only the receiver can delete the message");
+            throw new OperationNotPermittedException("Only the receiver can delete the message");
         }
         message.setFavourite(!message.isFavourite());
         messageRepo.save(message);
@@ -133,13 +149,13 @@ public class MainService {
                     .build();
             return ResponseEntity.ok(settingsDto);
         }
-        return null;
+        throw new ResourceNotFoundException("User not found");
     }
 
     public ResponseEntity<String> updateUserSettings(SettingsDto settingsDto, Authentication connectedUser) {
         User user = (User) connectedUser.getPrincipal();
         User existingUser = userRepo.findById(user.getId())
-                .orElseThrow(() -> new UsernameNotFoundException("NOT FOUND"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (settingsDto.getName() != null) {
             existingUser.setName(settingsDto.getName());
         }
@@ -177,7 +193,7 @@ public class MainService {
 
 
     public ResponseEntity<String> sendMessage(Integer receiverId, SendMessageRequest content) {
-        User receiver = userRepo.findById(receiverId).orElseThrow();
+        User receiver = userRepo.findById(receiverId).orElseThrow(()  -> new ResourceNotFoundException("User not found"));
         Message m = Message.builder()
                 .content(content.getMessageContent())
                 .receiver(receiver)
@@ -189,6 +205,9 @@ public class MainService {
             m.setCreatedBy(-1);
         } else {
             User u = userRepo.findByUserEmail(auth.getName());
+            if (u == null) {
+                throw new ResourceNotFoundException("Sender not found");
+            }
             m.setSender(u);
         }
         messageRepo.save(m);
@@ -197,10 +216,60 @@ public class MainService {
 
     }
 
+    public ResponseEntity<String> uploadProfilePicture(MultipartFile file, Authentication connectedUser) {
+        Logger logger = LoggerFactory.getLogger(MainService.class);
+
+        if (file.isEmpty()) {
+            throw new InvalidFileException("File is empty");
+        }
+
+        if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
+            throw new InvalidFileException("Invalid file type! Only JPEG, PNG, GIF allowed.");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new FileTooLargeException("File too large! Max: 10MB");
+        }
+
+        try {
+            // Send request to Imgur (Async)
+            Mono<String> response = webClient.post()
+                    .uri("/image")
+                    .header("Authorization", "Client-ID " + ImgureClientId)
+                    .bodyValue(file.getBytes())
+                    .retrieve()
+                    .bodyToMono(String.class);
+
+            // Asynchronously handle the response
+            response.subscribe(res -> {
+                JSONObject jsonObject = new JSONObject(res);
+                String imageUrl = jsonObject.getJSONObject("data").getString("link");
+
+                // Save image URL to user profile
+                User user = (User) connectedUser.getPrincipal();
+                user.setPicUrl(imageUrl);
+                userRepo.save(user);
+
+                logger.info("Profile picture uploaded successfully for user: {}", user.getEmail());
+            }, error -> {
+                logger.error("Error uploading image to Imgur: {}", error.getMessage());
+
+            });
+            //if you want to return the link
+//            User user=(User) connectedUser.getPrincipal();
+//            User u=userRepo.findByUserEmail(user.getEmail());
+//            return ResponseEntity.ok(u.getPicUrl());
+            // Immediately return a response without waiting for Imgur
+            return ResponseEntity.ok("any string");
 
 
-
-
+        } catch (Exception e) {
+            logger.error("Unexpected error: {}", e.getMessage());
+            return ResponseEntity.internalServerError().body("Unexpected error: " + e.getMessage());
+        }
+    }
 
 
 }
+
+

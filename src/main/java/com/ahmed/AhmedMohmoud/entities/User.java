@@ -34,10 +34,12 @@ public class User implements UserDetails, Principal {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String name;
+    @Column(nullable = false , unique = true)
     private String email;
     private String password;
     private LocalDate dateOfBirth;
     private String bio;
+
     private String picUrl;
     @ManyToMany(fetch = FetchType.EAGER)
     private List<Role> roles;

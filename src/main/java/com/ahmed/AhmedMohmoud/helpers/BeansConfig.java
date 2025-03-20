@@ -1,8 +1,6 @@
 package com.ahmed.AhmedMohmoud.helpers;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.AuditorAware;
@@ -40,8 +38,5 @@ public class BeansConfig {
         return config.getAuthenticationManager();
     }
 
-    @Bean
-    public CloseableHttpClient closeableHttpClient(){
-        return HttpClients.createDefault();
-    }
+
 }
