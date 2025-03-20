@@ -62,7 +62,7 @@ public class MainService {
             .baseUrl("https://api.imgur.com/3")
             .build();
     private final MessageRepo messageRepo;
-    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/gif");
+    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/gif" ,"image/jpg");
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 
