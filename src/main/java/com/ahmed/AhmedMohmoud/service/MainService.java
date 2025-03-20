@@ -46,6 +46,8 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,8 +57,8 @@ import java.util.stream.Collectors;
 public class MainService {
 
     private static final Logger logger = LoggerFactory.getLogger(MainService.class);
-    @Value("${ImgurClientId}")
-    private String ImgureClientId;
+    @Value(value = "${ImgurClientId}")
+    private String ImgurClientId;
     private final UserRepo userRepo;
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://api.imgur.com/3")
@@ -224,52 +226,90 @@ public class MainService {
         }
 
         if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
-            throw new InvalidFileException("Invalid file type! Only JPEG, PNG, GIF allowed.");
+            throw new InvalidFileException("Invalid file type! Only JPG ,JPEG, PNG, GIF allowed.");
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new FileTooLargeException("File too large! Max: 10MB");
         }
 
+        User user = (User) connectedUser.getPrincipal();
+
         try {
-            // Send request to Imgur (Async)
-            Mono<String> response = webClient.post()
+            // Convert Mono to CompletableFuture for synchronous result
+            CompletableFuture<String> future = webClient.post()
                     .uri("/image")
-                    .header("Authorization", "Client-ID " + ImgureClientId)
+                    .header("Authorization", "Client-ID " + ImgurClientId)
                     .bodyValue(file.getBytes())
                     .retrieve()
-                    .bodyToMono(String.class);
+                    .bodyToMono(String.class)
+                    .toFuture();
 
-            // Asynchronously handle the response
-            response.subscribe(res -> {
-                JSONObject jsonObject = new JSONObject(res);
-                String imageUrl = jsonObject.getJSONObject("data").getString("link");
+            // Wait for the result and process it
+            String response = future.get(); // Blocks until complete, but not reactive block()
+            JSONObject jsonObject = new JSONObject(response);
+            String imageUrl = jsonObject.getJSONObject("data").getString("link");
 
-                // Save image URL to user profile
-                User user = (User) connectedUser.getPrincipal();
-                user.setPicUrl(imageUrl);
-                userRepo.save(user);
+            // Save to database within transaction
+            user.setPicUrl(imageUrl);
+            userRepo.save(user);
 
-                logger.info("Profile picture uploaded successfully for user: {}", user.getEmail());
-            }, error -> {
-                logger.error("Error uploading image to Imgur: {}", error.getMessage());
+            logger.info("Profile picture uploaded successfully for user: {}, URL: {}", user.getEmail(), imageUrl);
+            return ResponseEntity.ok("Profile picture uploaded successfully: " + imageUrl);
 
-            });
-            //if you want to return the link
-//            User user=(User) connectedUser.getPrincipal();
-//            User u=userRepo.findByUserEmail(user.getEmail());
-//            return ResponseEntity.ok(u.getPicUrl());
-            // Immediately return a response without waiting for Imgur
-            return ResponseEntity.ok("any string");
-
-
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            logger.error("Error uploading image to Imgur: {}", cause.getMessage());
+            return ResponseEntity.status(500).body("Imgur upload failed: " + cause.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Upload interrupted: {}", e.getMessage());
+            return ResponseEntity.status(500).body("Upload interrupted: " + e.getMessage());
         } catch (Exception e) {
             logger.error("Unexpected error: {}", e.getMessage());
             return ResponseEntity.internalServerError().body("Unexpected error: " + e.getMessage());
         }
     }
 
+//        try {
+//            // Send request to Imgur (Async)
+//            Mono<String> response = webClient.post()
+//                    .uri("/image")
+//                    .header("Authorization", "Client-ID " + ImgurClientId)
+//                    .bodyValue(file.getBytes())
+//                    .retrieve()
+//                    .bodyToMono(String.class);
+//
+//            // Asynchronously handle the response
+//            response.subscribe(res -> {
+//                JSONObject jsonObject = new JSONObject(res);
+//                String imageUrl = jsonObject.getJSONObject("data").getString("link");
+//
+//                // Save image URL to user profile
+//                User user = (User) connectedUser.getPrincipal();
+//                user.setPicUrl(imageUrl);
+//                userRepo.save(user);
+//
+//                logger.info("Profile picture uploaded successfully for user: {}", user.getEmail());
+//            }, error -> {
+//                logger.error("Error uploading image to Imgur: {}", error.getMessage());
+//
+//            });
+//            //if you want to return the link
+////            User user=(User) connectedUser.getPrincipal();
+////            User u=userRepo.findByUserEmail(user.getEmail());
+////            return ResponseEntity.ok(u.getPicUrl());
+//            // Immediately return a response without waiting for Imgur
+//            return ResponseEntity.ok("any string");
+//
+//
+//        } catch (Exception e) {
+//            logger.error("Unexpected error: {}", e.getMessage());
+//            return ResponseEntity.internalServerError().body("Unexpected error: " + e.getMessage());
+//        }
+    }
 
-}
+
+
 
 
