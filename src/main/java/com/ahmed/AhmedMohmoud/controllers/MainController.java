@@ -134,12 +134,22 @@ public class MainController {
         return mainService.sendMessage(receiverId, content);
     }
 
-    @Operation(summary = "Upload an image", description = "Uploads an image file and associates it with the authenticated user.")
+    @Operation(
+            summary = "Upload an image",
+            description = "Uploads an image file and associates it with the authenticated user."
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Image uploaded successfully"),
-            @ApiResponse(responseCode = "500", description = "Error uploading image",
-                    content = @Content(mediaType = "text/plain"))
+            @ApiResponse(responseCode = "400", description = "Invalid file format"),
+            @ApiResponse(responseCode = "500", description = "Error uploading image")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Image file to upload",
+            content = @Content(
+                    mediaType = "multipart/form-data",
+                    schema = @Schema(type = "string", format = "binary")
+            )
+    )
     @PostMapping("/upload")
     public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile file
             , Authentication connectedUser) {
