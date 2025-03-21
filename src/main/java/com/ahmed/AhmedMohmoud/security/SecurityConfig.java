@@ -32,7 +32,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("https://crucial-michaelina-personal27-17f4cba2.koyeb.app", "http://localhost:8080" , "http://localhost:3000"));
+        configuration.setAllowedOrigins(Arrays.asList("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS" ,"PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -48,15 +48,18 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth-> {
-                 auth.requestMatchers(
+                    auth.requestMatchers(
                             "/register",
-                            "search" ,
-                            "user/**",
-                            "search/**",
+                            "/search",
+                            "/user/**",
+                            "/search/**",
                             "/login",
-                           "/swagger-ui.html/**",
-                         "/swagger-ui/**"
-                         ,"/v3/api-docs/**"
+                            "/swagger-ui.html",
+                            "/swagger-ui/**",
+                            "/v3/api-docs",
+                            "/v3/api-docs/**",
+                            "/swagger-resources/**",
+                            "/webjars/**"
                     ).permitAll();
                  auth.anyRequest().authenticated();
                 })

@@ -4,57 +4,31 @@ import com.ahmed.AhmedMohmoud.dao.MessageRepo;
 import com.ahmed.AhmedMohmoud.dao.UserRepo;
 import com.ahmed.AhmedMohmoud.entities.Message;
 import com.ahmed.AhmedMohmoud.entities.User;
-import com.ahmed.AhmedMohmoud.exception.FileTooLargeException;
-import com.ahmed.AhmedMohmoud.exception.InvalidFileException;
 import com.ahmed.AhmedMohmoud.exception.OperationNotPermittedException;
 import com.ahmed.AhmedMohmoud.exception.ResourceNotFoundException;
 import com.ahmed.AhmedMohmoud.helpers.*;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import io.netty.channel.ChannelOption;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.hc.client5.http.entity.mime.ByteArrayBody;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.springframework.web.server.ResponseStatusException;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.json.JSONObject;
-import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
-
-
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Service

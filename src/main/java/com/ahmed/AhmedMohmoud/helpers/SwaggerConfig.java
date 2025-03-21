@@ -20,7 +20,8 @@ public class SwaggerConfig {
                         .title("StalkerRat API") // Fixed typo from "StackerRat"
                         .version("0.0.1-SNAPSHOT")
                         .description("API for managing user files and authentication in StalkerRat"))
-                .addServersItem(new Server().url("https://crucial-michaelina-personal27-17f4cba2.koyeb.app")) // Force HTTPS
+                .addServersItem(new Server().url("/"))
+
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new io.swagger.v3.oas.models.Components()
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
