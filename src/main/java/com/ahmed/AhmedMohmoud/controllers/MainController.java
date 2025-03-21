@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -36,14 +37,6 @@ public class MainController {
     }
 
 
-    @PostMapping("/upload-profile-picture")
-    @Operation(summary = "Upload profile picture", description = "Uploads a profile picture for the authenticated user.")
-    @ApiResponse(responseCode = "200", description = "Profile picture uploaded successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = String.class)))
-    @ApiResponse(responseCode = "400", description = "Invalid file or request", content = @Content)
-    @ApiResponse(responseCode = "401", description = "Unauthorized access", content = @Content)
-    public ResponseEntity<String> uploadProfilePicture(@RequestParam("file") MultipartFile file, Authentication connectedUser) throws IOException {
-        return mainService.uploadProfilePicture(file, connectedUser);
-    }
 
 
     @GetMapping("/messages")
@@ -127,6 +120,25 @@ public class MainController {
 
     ){
         return mainService.sendMessage( receiverId , content);
+    }
+
+    @Operation(
+            summary = "Upload an image",
+            description = "Uploads an image file and associates it with the authenticated user."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Image uploaded successfully"),
+            @ApiResponse(responseCode = "500", description = "Error uploading image",
+                    content = @Content(mediaType = "text/plain"))
+    })
+    @PostMapping("/upload")
+    public ResponseEntity<String> uploadImage(@RequestParam("file") MultipartFile file
+    , Authentication connectedUser) {
+        try {
+           return  mainService.uploadImage(file , connectedUser);
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body("Error uploading image: " + e.getMessage());
+        }
     }
 
 }

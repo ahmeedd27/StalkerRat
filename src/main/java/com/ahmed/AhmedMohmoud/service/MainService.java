@@ -9,6 +9,8 @@ import com.ahmed.AhmedMohmoud.exception.InvalidFileException;
 import com.ahmed.AhmedMohmoud.exception.OperationNotPermittedException;
 import com.ahmed.AhmedMohmoud.exception.ResourceNotFoundException;
 import com.ahmed.AhmedMohmoud.helpers.*;
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import io.netty.channel.ChannelOption;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +52,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -61,20 +64,9 @@ import java.util.stream.Collectors;
 public class MainService {
 
     private static final Logger logger = LoggerFactory.getLogger(MainService.class);
-    @Value(value = "${ImgurClientId}")
-    private String ImgurClientId;
     private final UserRepo userRepo;
-    private final WebClient webClient = WebClient.builder()
-            .baseUrl("https://api.imgur.com/3")
-            .clientConnector(new ReactorClientHttpConnector(
-                    HttpClient.create()
-                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000) // 10s connect timeout
-                            .responseTimeout(Duration.ofSeconds(30)) // 30s response timeout
-            ))
-            .build();
     private final MessageRepo messageRepo;
-    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/gif" ,"image/jpg");
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
+    private final Cloudinary cloudinary;
 
 
     public ResponseEntity<ProfileDto> getProfileDto(Authentication connectedUser) {
@@ -204,7 +196,7 @@ public class MainService {
 
 
     public ResponseEntity<String> sendMessage(Integer receiverId, SendMessageRequest content) {
-        User receiver = userRepo.findById(receiverId).orElseThrow(()  -> new ResourceNotFoundException("User not found"));
+        User receiver = userRepo.findById(receiverId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Message m = Message.builder()
                 .content(content.getMessageContent())
                 .receiver(receiver)
@@ -226,118 +218,23 @@ public class MainService {
 
 
     }
+    public ResponseEntity<String> uploadImage(MultipartFile file , Authentication connectedUser) throws IOException {
+        User u=(User) connectedUser.getPrincipal();
+        User user = userRepo.findById(u.getId()).orElseThrow(() -> new ResourceNotFoundException("Not Found"));
+        Map<String, Object> options = ObjectUtils.asMap(
+                "resource_type", "image",
+                "timestamp", System.currentTimeMillis() / 1000
+        );
+         Map uploadResult = cloudinary.uploader().upload(file.getBytes(), options);
+        String imgUrl= uploadResult.get("url").toString(); // Returns the uploaded image URL
+        u.setPicUrl(imgUrl);
+        userRepo.save(u);
+        return ResponseEntity.ok(imgUrl);
 
-    public ResponseEntity<String> uploadProfilePicture(MultipartFile file, Authentication connectedUser) {
-        Logger logger = LoggerFactory.getLogger(MainService.class);
-
-        if (file.isEmpty()) {
-            throw new InvalidFileException("File is empty");
-        }
-
-        if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
-            throw new InvalidFileException("Invalid file type! Only JPG ,JPEG, PNG, GIF allowed.");
-        }
-
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new FileTooLargeException("File too large! Max: 10MB");
-        }
-
-
-            User user = (User) connectedUser.getPrincipal();
-            int maxRetries = 3;
-            int initialDelaySeconds = 5;
-
-            for (int attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    CompletableFuture<String> future = webClient.post()
-                            .uri("/image")
-                            .header("Authorization", "Client-ID " + ImgurClientId)
-                            .bodyValue(file.getBytes())
-                            .retrieve()
-                            .toEntity(String.class)
-                            .map(responseEntity -> {
-                                logger.info("Imgur Headers: {}", responseEntity.getHeaders());
-                                return responseEntity.getBody();
-                            })
-                            .toFuture();
-
-                    String response = future.get();
-                    JSONObject jsonObject = new JSONObject(response);
-                    String imageUrl = jsonObject.getJSONObject("data").getString("link");
-
-                    user.setPicUrl(imageUrl);
-                    userRepo.save(user);
-                    logger.info("Profile picture uploaded successfully for user: {}, URL: {}", user.getEmail(), imageUrl);
-                    return ResponseEntity.ok("Profile picture uploaded successfully: " + imageUrl);
-
-                } catch (ExecutionException e) {
-                    Throwable cause = e.getCause();
-                    String errorMsg = cause.getMessage();
-                    if (errorMsg.contains("RST_STREAM")) {
-                        logger.warn("RST_STREAM received on attempt {}/{}", attempt, maxRetries);
-                        if (attempt < maxRetries) {
-                            int delay = initialDelaySeconds * (int) Math.pow(2, attempt - 1); // Exponential backoff
-                            logger.info("Retrying after {} seconds...", delay);
-                            try {
-                                Thread.sleep(delay * 1000);
-                                continue;
-                            } catch (InterruptedException ie) {
-                                Thread.currentThread().interrupt();
-                                return ResponseEntity.status(500).body("Retry interrupted");
-                            }
-                        }
-                        return ResponseEntity.status(503).body("Imgur upload failed: RST_STREAM after max retries");
-                    }
-                    logger.error("Error uploading image to Imgur: {}", errorMsg);
-                    return ResponseEntity.status(500).body("Imgur upload failed: " + errorMsg);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return ResponseEntity.status(500).body("Upload interrupted");
-                } catch (Exception e) {
-                    logger.error("Unexpected error: {}", e.getMessage());
-                    return ResponseEntity.internalServerError().body("Unexpected error: " + e.getMessage());
-                }
-            }
-            return ResponseEntity.status(503).body("Max retries exceeded due to RST_STREAM");
     }
 
-//        try {
-//            // Send request to Imgur (Async)
-//            Mono<String> response = webClient.post()
-//                    .uri("/image")
-//                    .header("Authorization", "Client-ID " + ImgurClientId)
-//                    .bodyValue(file.getBytes())
-//                    .retrieve()
-//                    .bodyToMono(String.class);
-//
-//            // Asynchronously handle the response
-//            response.subscribe(res -> {
-//                JSONObject jsonObject = new JSONObject(res);
-//                String imageUrl = jsonObject.getJSONObject("data").getString("link");
-//
-//                // Save image URL to user profile
-//                User user = (User) connectedUser.getPrincipal();
-//                user.setPicUrl(imageUrl);
-//                userRepo.save(user);
-//
-//                logger.info("Profile picture uploaded successfully for user: {}", user.getEmail());
-//            }, error -> {
-//                logger.error("Error uploading image to Imgur: {}", error.getMessage());
-//
-//            });
-//            //if you want to return the link
-////            User user=(User) connectedUser.getPrincipal();
-////            User u=userRepo.findByUserEmail(user.getEmail());
-////            return ResponseEntity.ok(u.getPicUrl());
-//            // Immediately return a response without waiting for Imgur
-//            return ResponseEntity.ok("any string");
-//
-//
-//        } catch (Exception e) {
-//            logger.error("Unexpected error: {}", e.getMessage());
-//            return ResponseEntity.internalServerError().body("Unexpected error: " + e.getMessage());
-//        }
-    }
+
+}
 
 
 
