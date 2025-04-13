@@ -159,7 +159,7 @@ src/
 
 ## 👨‍💻 Author
 
-Developed by **Ahmed Mahmoud**
+Developed by **Ahmed Khamis**
 
 > “Sometimes the message matters more than the messenger.”
 
