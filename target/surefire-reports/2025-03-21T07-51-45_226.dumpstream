@@ -1,0 +1,5 @@
+# Created at 2025-03-21T07:51:45.511
+Boot Manifest-JAR contains absolute paths in classpath 'E:\SpringProjects\StalkerRat\target\test-classes'
+Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+'other' has different root
+
