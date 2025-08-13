@@ -125,7 +125,7 @@ public class MainController {
             @ApiResponse(responseCode = "200", description = "Message sent successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid message content or receiver ID")
     })
-    @PostMapping("/user/{receiver-id}")
+    @PostMapping("/send/{receiver-id}")
     public ResponseEntity<String> sendMessageToUser(
             @PathVariable("receiver-id") Integer receiverId,
             @RequestBody SendMessageRequest content
@@ -139,11 +139,7 @@ public class MainController {
             description = "Uploads an image file and associates it with the authenticated user.",
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Upload an image file",
-                    required = true,
-                    content = @Content(
-                            mediaType = "multipart/form-data",
-                            schema = @Schema(type = "string", format = "binary")
-                    )
+                    required = true
             )
     )
     @ApiResponses({
@@ -151,15 +147,13 @@ public class MainController {
             @ApiResponse(responseCode = "400", description = "Invalid file format"),
             @ApiResponse(responseCode = "500", description = "Error uploading image")
     })
-    @PostMapping(value = "/upload", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload")
     public ResponseEntity<String> uploadImage(
-            @Parameter(description = "Image file to upload", required = true)
-            @RequestParam("file") MultipartFile file,
-
-            Authentication connectedUser
+         @RequestBody ImageUploadRequest request,
+ Authentication connectedUser
     ) {
         try {
-            return mainService.uploadImage(file, connectedUser);
+            return mainService.uploadImage(request, connectedUser);
         } catch (IOException e) {
             return ResponseEntity.status(500).body("Error uploading image: " + e.getMessage());
         }

@@ -17,8 +17,6 @@ public class Token {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String name;
-    private LocalDateTime createdAt;
-    private LocalDateTime expiresAt;
     private boolean isRevoked;
     @ManyToOne
     @JoinColumn(nullable = false , name="user_id")

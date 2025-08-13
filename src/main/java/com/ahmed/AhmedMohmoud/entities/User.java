@@ -39,31 +39,21 @@ public class User implements UserDetails, Principal {
     private String password;
     private LocalDate dateOfBirth;
     private String bio;
-
-    private String picUrl;
-    @ManyToMany(fetch = FetchType.EAGER)
-    private List<Role> roles;
+     private String picUrl;
+    @Enumerated(EnumType.STRING)
+    private Role role;
     @OneToMany(mappedBy = "sender", fetch = FetchType.LAZY)
     @JsonManagedReference("sentMessages")
     private List<Message> sentMessages;
     @OneToMany(mappedBy = "receiver", fetch = FetchType.LAZY)
     @JsonManagedReference("receivedMessages")
     private List<Message> receivedMessages;
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-    @LastModifiedDate
-    @Column(insertable = false)
-    private LocalDateTime lastModifiedAt;
+
 
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return this.roles
-                .stream()
-                .map(r -> new SimpleGrantedAuthority(r.getName()))
-                .collect(Collectors.toList())
-                ;
+        return List.of(new SimpleGrantedAuthority("ROLE_"+role.name()));
     }
 
     public String getFullName(){

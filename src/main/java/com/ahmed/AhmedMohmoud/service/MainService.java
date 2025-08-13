@@ -25,8 +25,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -192,15 +194,25 @@ public class MainService {
 
 
     }
-    public ResponseEntity<String> uploadImage(MultipartFile file , Authentication connectedUser) throws IOException {
-        User u=(User) connectedUser.getPrincipal();
-        User user = userRepo.findById(u.getId()).orElseThrow(() -> new ResourceNotFoundException("Not Found"));
+
+    public ResponseEntity<String> uploadImage(ImageUploadRequest image, Authentication connectedUser) throws IOException {
+        User u = (User) connectedUser.getPrincipal();
         Map<String, Object> options = ObjectUtils.asMap(
                 "resource_type", "image",
                 "timestamp", System.currentTimeMillis() / 1000
         );
-         Map uploadResult = cloudinary.uploader().upload(file.getBytes(), options);
-        String imgUrl= uploadResult.get("url").toString(); // Returns the uploaded image URL
+        String base64Data;
+        String imgUrl = "";
+        try {
+            base64Data = image.getImage().split(",")[1];
+            byte[] fileData = Base64.getDecoder().decode(base64Data);
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(fileData, options);
+            imgUrl = uploadResult.get("secure_url").toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload image to Cloudinary", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid base64 or upload error", e);
+        }
         u.setPicUrl(imgUrl);
         userRepo.save(u);
         return ResponseEntity.ok(imgUrl);
