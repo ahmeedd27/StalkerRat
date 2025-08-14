@@ -32,8 +32,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("https://crucial-michaelina-personal27-17f4cba2.koyeb.app" , "localhost:8080"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS" ,"PATCH"));
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://13.62.99.87",
+                "http://localhost:3000",
+                "http://localhost:8080"
+        ));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -47,7 +51,7 @@ public class SecurityConfig {
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth-> {
+                .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(
                             "/register",
                             "/search",
@@ -61,21 +65,21 @@ public class SecurityConfig {
                             "/swagger-resources/**",
                             "/webjars/**"
                     ).permitAll();
-                 auth.anyRequest().authenticated();
+                    auth.anyRequest().authenticated();
                 })
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthenticationFilter , UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(
                         s ->
                                 s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .logout(l ->
-                       l.logoutUrl("/logout")
-                               .addLogoutHandler(lh)
-                               .logoutSuccessHandler(((request, response, authentication) ->
-                                       SecurityContextHolder.clearContext()
-                                       )
-                               )
-                        )
+                        l.logoutUrl("/logout")
+                                .addLogoutHandler(lh)
+                                .logoutSuccessHandler(((request, response, authentication) ->
+                                                SecurityContextHolder.clearContext()
+                                        )
+                                )
+                )
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .build();

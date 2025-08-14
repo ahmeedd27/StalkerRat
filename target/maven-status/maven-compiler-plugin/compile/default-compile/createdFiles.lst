@@ -23,10 +23,10 @@ com\ahmed\AhmedMohmoud\exception\GlobalExceptionHandler.class
 com\ahmed\AhmedMohmoud\helpers\CloudinaryConfig.class
 com\ahmed\AhmedMohmoud\exception\InvalidFileException.class
 com\ahmed\AhmedMohmoud\service\JwtService.class
-com\ahmed\AhmedMohmoud\dao\RoleRepo.class
 com\ahmed\AhmedMohmoud\helpers\TopThreeResponseHelper.class
 com\ahmed\AhmedMohmoud\helpers\TopThreeResponseHelper$TopThreeResponseHelperBuilder.class
 com\ahmed\AhmedMohmoud\helpers\SearchByNameHelper$SearchByNameHelperBuilder.class
+com\ahmed\AhmedMohmoud\helpers\ImageUploadRequest.class
 com\ahmed\AhmedMohmoud\helpers\SettingsDto.class
 com\ahmed\AhmedMohmoud\exception\FileTooLargeException.class
 com\ahmed\AhmedMohmoud\helpers\SendMessageRequest$SendMessageRequestBuilder.class
@@ -34,7 +34,6 @@ com\ahmed\AhmedMohmoud\helpers\UserLogin.class
 com\ahmed\AhmedMohmoud\exception\ExceptionResponse$ExceptionResponseBuilder.class
 com\ahmed\AhmedMohmoud\controllers\MainController.class
 com\ahmed\AhmedMohmoud\helpers\SettingsDto$SettingsDtoBuilder.class
-com\ahmed\AhmedMohmoud\entities\Role$RoleBuilder.class
 com\ahmed\AhmedMohmoud\entities\Role.class
 com\ahmed\AhmedMohmoud\security\SecurityConfig.class
 com\ahmed\AhmedMohmoud\controllers\AuthenticationController.class

@@ -149,8 +149,8 @@ public class MainController {
     })
     @PostMapping(value = "/upload")
     public ResponseEntity<String> uploadImage(
-         @RequestBody ImageUploadRequest request,
- Authentication connectedUser
+            @RequestBody ImageUploadRequest request,
+            Authentication connectedUser
     ) {
         try {
             return mainService.uploadImage(request, connectedUser);
